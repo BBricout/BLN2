@@ -95,7 +95,7 @@ objective<- function(params, data) {
   E <- (1-expmA) / (4 * A * (1+expmA))
   G <- log(1 + expmA) + A  - E * A
   
-  objective <- sum(R * ((Y - D) * (Mu + M %*% t(C))) - E * ((S %*% t(C*C)) + (Mu + M %*% t(C) - A)^2) - G) - 0.5 * sum((M^2 + S - log(S)))
+  objective <- sum(R * ((Y - D) * (Mu + M %*% t(C))) - E * ((S %*% t(C*C)) + (Mu + M %*% t(C) - A)^2) - G) - 0.5 * sum((M^2 + S - log(S))) + (list_dim$n * list_dim$q)/2
   objective <- -1*objective 
   return(objective)
 }
