@@ -22,13 +22,14 @@ Init_BLN <- function(Y, X){
   
   
   B.init <- as.matrix(fit$coefficients)
-  #B.init <- as.matrix(B)
+  # B.init <- as.matrix(B)
   # res.mat <- VectorToMatrix(res.full, n, p)
   
   # svdM <- svd(res.mat, nu = q, nv = p)
   
   #C.init <- svdM$v[, 1:q, drop = FALSE] %*% diag(svdM$d[1:q], nrow = q, ncol = q)/sqrt(n)
   C.init <- matrix(rnorm(p*q), nrow = p)
+  # C.init <- C
   M.init <- matrix(0.1, n, q)
   # M.init <- W
   # M.init  <- svdM$u[, 1:q, drop = FALSE] %*% diag(svdM$d[1:q], nrow = q, ncol = q) %*% t(svdM$v[1:q, 1:q, drop = FALSE])

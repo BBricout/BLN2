@@ -23,7 +23,7 @@ sum(B^2)
 rho <- 1
 
 W <- matrix(rnorm(n*q), nrow = n)
-C <- matrix(rnorm(p*q,0,1), nrow = p)/sqrt(q)
+C <- matrix(rnorm(p*q,0,1), nrow = p)
 
 
 XB <- VectorToMatrix(X%*%B, n, p)
