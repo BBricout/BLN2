@@ -129,15 +129,16 @@ Rcpp::List nlopt_optimize_rank_BLN(
 	
 	
 
-	double objective = - (accu(R % ((Y - D) % (Mu + M * C.t()) - E % (S*(C%C).t() + square(Mu + M*C.t() - A)) - G))- 0.5 * accu((M%M + S - log(S))));
+	double objective = - (accu(R % ((Y - D) % (Mu + M * C.t()) - E % (S*(C%C).t() + square(Mu + M*C.t() - A)) - G))- 0.5 * accu((M%M + S - log(S)))) + (n*q)/2;
 	
 	std::cout << objective << std::endl;
 	
 
         metadata.map<B_ID>(grad) = -X.t() * (vecR % vecF) ;
+        //metadata.map<B_ID>(grad) = 0;
        	metadata.map<C_ID>(grad) = -((R % F).t() * M - 2 * (R%E).t() * S % C);
-        metadata.map<M_ID>(grad) = - (R % F * C - M);
-        metadata.map<S_ID>(grad) =  -(R % E * (C%C)- 1/2 * (1. - log(S)));
+        metadata.map<M_ID>(grad) = - ((R % F) * C - M);
+        metadata.map<S_ID>(grad) =  -(-(R % E) * (C%C)- 1/2 * (1. - 1/S));
 
 
         
