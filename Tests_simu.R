@@ -5,40 +5,11 @@ library(PLNmodels)
 local.dir = getwd()
 source(file.path(local.dir,"Simu_data.R"))
 
+
 config <- PLNPCA_param()$config_optim
 
 
 
-# Initialisation
-
-Init_BLN <- function(Y, X){
-  fit <- glm(vec(Y) ~ -1 + X, family = "binomial", na.action = na.exclude)
-  
-  res <- residuals(fit, type = "response")
-
-  ind.res <- as.numeric(names(res))
-  indices <- c(1:(n*p))
-  res.full <- ifelse(indices %in% ind.res, res, 0)
-  
-  
-  B.init <- as.matrix(fit$coefficients)
-  # B.init <- as.matrix(B)
-  # res.mat <- VectorToMatrix(res.full, n, p)
-  
-  # svdM <- svd(res.mat, nu = q, nv = p)
-  
-  #C.init <- svdM$v[, 1:q, drop = FALSE] %*% diag(svdM$d[1:q], nrow = q, ncol = q)/sqrt(n)
-  C.init <- matrix(rnorm(p*q), nrow = p)
-  # C.init <- C
-  M.init <- matrix(0.1, n, q)
-  # M.init <- W
-  # M.init  <- svdM$u[, 1:q, drop = FALSE] %*% diag(svdM$d[1:q], nrow = q, ncol = q) %*% t(svdM$v[1:q, 1:q, drop = FALSE])
-  S.init <-  matrix(1, n, q)
-  
-  result <- list(B = B.init, C = C.init, M = M.init, S = S.init)
-  
-  return(result)
-}
 
 # Paramètres initiaux
 
@@ -56,10 +27,10 @@ data.na50 <- list(Y = Y, R = ifelse(is.na(Y.na50), 0, 1), X = X)
 
 # Ajustement
 
-out <- nlopt_optimize_rank_BLN(data, params, config)
-out.na10 <- nlopt_optimize_rank_BLN(data.na10, params.na10, config)
-out.na30 <- nlopt_optimize_rank_BLN(data.na30, params.na30, config)
-out.na50 <- nlopt_optimize_rank_BLN(data.na50, params.na50, config)
+# out <- nlopt_optimize_rank_BLN(data, params, config)
+# out.na10 <- nlopt_optimize_rank_BLN(data.na10, params.na10, config)
+# out.na30 <- nlopt_optimize_rank_BLN(data.na30, params.na30, config)
+# out.na50 <- nlopt_optimize_rank_BLN(data.na50, params.na50, config)
 
 # Visualisation des regresseurs
 

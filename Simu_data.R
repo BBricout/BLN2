@@ -7,7 +7,7 @@ library(matrixcalc)
 library(missForest)
 
 local.dir = getwd()
-sourceCpp(file.path(local.dir,"src/optim_rank_cov_BLN.cpp"))
+#sourceCpp(file.path(local.dir,"src/optim_rank_cov_BLN.cpp"))
 
 #------------Simulation d'un jeu de données-------------------
 
@@ -20,10 +20,10 @@ X <- cbind(c(rep(1, n*p)),matrix(rnorm(n*p*d), nrow = n*p))
 B <- c(-2, 1, 3, 2, 5, -3)
 sum(B^2)
 
-rho <- 1
+rho <- 2
 
 W <- matrix(rnorm(n*q), nrow = n)
-C <- matrix(rnorm(p*q,0,1), nrow = p)
+C <- matrix(rho*rnorm(p*q), nrow = p)
 
 
 XB <- VectorToMatrix(X%*%B, n, p)
@@ -51,8 +51,8 @@ Y.na50 <- prodNA(Y, 0.5)
 O <- VectorToMatrix(X%*%B, n, p)
 j=1
 mat <- t(sapply(1:p, function(j)
-       glm(Y[,j]~-1 + W + offset(O[,j]), family= "binomial")$coefficients))
-
+      glm(Y[,j]~-1 + W + offset(O[,j]), family= "binomial")$coefficients))
+ 
 plot(C, mat);abline(0,1)
 
 

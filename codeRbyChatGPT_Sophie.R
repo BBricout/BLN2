@@ -1,215 +1,82 @@
 library(Rcpp)
 library(RcppArmadillo)
 library(nloptr)
+library(missForest)
 
-###################################""
-# From matrix to vector
-##################################
-MatrixToVector <- function(matrix) {
-  n <- nrow(matrix)
-  p <- ncol(matrix)
-  # Check if the input matrix is not empty
-  if (n == 0 || p == 0) {
-    stop("Input matrix is empty")
-  }
-  # Reshape the matrix into a column vector
-  vectorized <- as.vector(matrix)
-  return(vectorized)
-}
+#---------------------------------------------------------
+#------------Simulation d'un jeu de données-------------------
+#----------------------------------------------------------------------------
+n <- 1000
+p <- 20 
+d <- 2
+q <- 1
+list_dim <- list(d=d,n=n,p=p,q=q)
 
-####################################
-# From vector to matrix
-######################################
-VectorToMatrix <- function(vector, n, p) {
-  # Create a matrix with the specified dimensions
-  matrix <- matrix(vector, nrow = n, ncol = p)
-  return(matrix)
-}
+X <- matrix(rnorm(n*p*d), nrow = n*p,ncol=d)
+X[,1] <- 1
+B <- c(-2, 1, 3, 2, 5, -3)[1:d]
+rho <- 2
 
+W <- matrix(rnorm(n*q), nrow = n)
+C <- matrix(rho*rnorm(p*q), nrow = p)
+XB <- VectorToMatrix(X%*%B, n, p)
+Z <- XB + W%*%t(C)    
+Prob <- plogis(Z)
+Y <- matrix(rbinom(n*p, p = Prob, size = 1), nrow = n)
+data <- list(Y = Y, R = matrix(1, n, p), X = X)
 
-###############################"
-# From vector to parametersList
-##############################
+Y.na30 <- missForest::prodNA(Y, 0.3)
+data.na30 <- list(Y = Y.na30, R = ifelse(is.na(Y.na30), 0, 1), X = X)
 
-VectorToParamsList <- function(params, list_dim) {
-  
-  
-  d <- list_dim$d
-  n <- list_dim$n
-  p <- list_dim$p
-  q <- list_dim$q
-  
-  B <- matrix(params[1:d],ncol=1)
-  
-  C <- VectorToMatrix(params[(d + 1):(d + p*q)],p,q)
-  M <- VectorToMatrix(params[(d+ p*q  + 1 ):(d + p*q + n*q)],n,q)
-  S <- VectorToMatrix(params[(d+ p*q  + n*q +1 ):(d + p*q + 2*n*q)],n,q)
-  return(list(B=B,C=C,M=M,S=S))
-}
+#--------------------------------
+########  INITIALISATION
+#---------------------------------
 
-###############################"
-# From vector to parametersList
-##############################
-
-ParamsListToVector <- function(paramsList, list_dim) {
-  
-  d <- list_dim$d
-  n <- list_dim$n
-  p <- list_dim$p
-  q <- list_dim$q
-  
-  params <-  rep(0,d + p*q + 2*n*q)
-  params[1:d] <- c(paramsList$B)
-  params[(d + 1):(d + p*q)] <- MatrixToVector(paramsList$C)
-  params[(d+ p*q  + 1 ):(d + p*q + n*q)] <- MatrixToVector(paramsList$M)
-  params[(d+ p*q  + n*q +1 ):(d + p*q + 2*n*q)] <- MatrixToVector(paramsList$S)
-  return(params)
-}
+params.list.true <- list(B=B,C=C,M = matrix(W,n,q),Sd=sqrt(matrix(0.1,n,q)))
+params.list.init <- Init_BLN(data)
+params.vec.init <- paramListToVector(params.list.init,list_dim)
 
 
-#################################################
-objective<- function(params, data) {
-  
-  Y <- data$Y
-  X <- data$X
-  R <- data$R
-  
-  list_dim <- list(n = 500, p = 30, d = 6, q = 3)
-  
-  paramslist <- VectorToParamsList(params, list_dim)
-  
-  B <- paramslist$B
-  C <- paramslist$C
-  M <- paramslist$M
-  S <- paramslist$S
-  
-  
+Obj_init <- objective(params.vec = params.vec.init, data,list_dim= list(d=d,n=n,p=p,q=q))
+Obj_true <- objective(params.vec = paramListToVector(params.list.true,list_dim), data,list_dim= list(d=d,n=n,p=p,q=q))
 
-  #---------------- Evaluation objectif
-  XB <- data$X %*% B
-  Mu <- VectorToMatrix(XB, n,p)
-  MuMC <- (Mu + M %*% t(C))
-  SC2 <- S %*% t(C*C)
-  A <- sqrt(MuM^2 +SC2)
-  expmA <- exp(-A)
-  D <- 1 / (1 + expmA)
-  E <- (1-expmA) / (4 * A * (1+expmA))
-  G <- log(1 + expmA) + A  - E * A
-  U <- sum(R*(-log(D)+A-D*A +E*A^2))
-  T2 <- sum((Y-D + 2*A*E)*MuMC)
-  T3 <- - sum(R*E*(SC2 + MuMC^2))
-  T4 <- -1/2 *sum(M^2+S - log(S))-n*q/2
-  objective1 <- U - T1 - T2 - T3 - T4   
-  objective2 <- sum(R * ((Y - D + 2*A*E) * (MuMC) - E * (SC2) + (MuMC - A)^2) - G) - 0.5 * sum((M^2 + S - log(S)))
-  objective <- -1*objective 
-  return(c(objective1,objective2))
-}
+#################  ESTIMATION only B 
+res <- optim(par = params.list.init$B, fn=objective,  data = data,list_dim=list_dim ,params.list.true = params.list.true,estim=c('B'))
+cbind(params.list.init$B,res$par,params.list.true$B)
+c(Obj_init, res$value,Obj_true)
 
 
-nlopt_optimize_rank_BLN <- function(data, params, eval_f, list_dim) {
-  init_params <- ParamsListToVector(params, list_dim)
-  result <- nloptr(x0 = init_params, eval_f = eval_f, 
-                   opts = list("algorithm" = "NLOPT_GN_ISRES", "xtol_rel" = 1.0e-8),
-                   data = data)
-  return(result)
-}
+Zhat <- VectorToMatrix(X%*%params.list.estim$B,n,p)+W%*%t(params.list.true$C)
+Zhat.init <- VectorToMatrix(X%*%params.list.init$B,n,p)+W%*%t(params.list.true$C)
+plot(Z,Zhat,ylab='true',xlab='estim')
+points(Z,Zhat.init,col=('red'))
 
-list_dim <- list(n = 500, p = 30, d = 6, q = 3)
+plot(cov(Y),params.list.estim$C%*%t(params.list.estim$C))
 
-res <- nlopt_optimize_rank_BLN(data, params, objective, list_dim)
+############  ESTIMATION only C 
+params.list.init$B <- params.list.true$B
+params.init.vec <- paramListToVector(params.list.true,list_dim,estim='C')
 
-VectorToParamsList(res$solution, list_dim)$C
+res <- optim(par = params.init.vec, fn=objective,  data = data,list_dim=list_dim ,params.list.true = params.list.true,estim=c('C'))
+params.list.estim <- VectorToparamsList(res$par,list_dim,estim='C',params.list.true = params.list.true)
+c(res$value,Obj_true)
 
+CC.estim <- params.list.estim$C%*%t(params.list.estim$C)
+CC.true <- params.list.true$C%*%t(params.list.true$C)
+plot(CC.estim,CC.true,ylab='true',xlab='estim')
+abline(a=0,b=1)
+####################################"" 
 
+################# Estimation B and C. (to do) 
+XB + W%*%t(C)    
 
-
-
-
-
-
-
-
-
-
-
-
+abline(a=0,b=1)
 
 
+result <- nloptr(x0 = paramsInit.vec, eval_f = objective, 
+                 opts = list("algorithm" = "NLOPT_GN_ISRES", "xtol_rel" = 1.0e-8),
+                 data = data,list_dim=list(d=d,n=n,p=p,q=q))
+result$x0
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-################################################
-
-
-
-# # Rank-constrained covariance
-# nlopt_optimize_rank_BLN <- function(data, params, eval_f) {
-#   # Conversion from R, prepare optimization
-#   Y <- as.matrix(data$Y)  # responses (n,p)
-#   R <- as.matrix(data$R)  # missing data (n,p)
-#   X <- as.matrix(data$X)  # covariates (np,d)
-#   
-#   init_S <- params$S
-#   init_B <- params$B
-#   init_M <- params$M
-#   init_C <- params$C
-#   
-#   data <- list(Y = Y, X = X, R = R, B = init_B, C = init_C, M = init_M, S = init_S)
-#   
-#   
-#   # Optimize
-#   
-#   result <- nloptr(x0 = data, eval_f = eval_f, 
-#                    opts = list("algorithm"="NLOPT_LD_LBFGS", "xtol_rel"=1.0e-8))
-#   
-#   return(result)
-#   
-# }
-objectiveB<- function(B,list_dim,data,params.fixed) {
-  
-  n <- list_dim$n
-  p <- list_dim$p
-  vecY <- MatrixToVector(data$Y)
-  vecR <- MatrixToVector(data$R)
-  
-  #-------------- transfo paramsVector to List
-  M <-  params.fixed$M
-  C <-  params.fixed$C
-  S <-  params.fixed$S
-  #---------------- Evaluation objectif
-  S2 <- S * S
-  
-  XB <- data$X %*% B
-  Mu <- VectorToMatrix(XB, n,p)
-  
-  A <- 1+exp(Mu)
-  
-  
-  #A <- sqrt((Mu + M %*% t(C))^2 + (S2 %*% t(C*C))^2)
-  #expmA <- exp(-A)
-  #D <- 1 / (1 + expmA)
-  #E <- (1-expmA) / (4 * A * (1+expmA))
-  #G <- log(1 + expmA) + A  - E * A
-  
-  #objective <- sum(data$R * dbinom(data$Y,prob =1/A,size = 1, log=  TRUE))
-  objective <- sum(data$R * (data$Y*Mu - log(A)))
-  #objective <- sum(data$R * ((data$Y + D) * (Mu + M %*% t(C))) + E * ((S2 %*% t(C*C))^2 + (Mu + M %*% t(C) - A)^2) + G) #- 0.5 * sum((M^2 + S2 + log(S2)))
-  objective <- -1*objective 
-  return(objective)
-}
 
 

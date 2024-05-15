@@ -17,6 +17,7 @@ local.dir = getwd()
 
 #sourceCpp(file.path(local.dir,"src/optim_rank_cov_BLN.cpp"))
 source(file="codeRbyChatGPT.R")
+source(file='BLNAddFunctions.R')
 #---------------------------------------------------
 # Simulation d'un jeu de données simple
 #----------------------------------------------------
